@@ -1,0 +1,1 @@
+Both hook sendto to get the target IP address. Python version needs Pydbg installed and download chunzhen IP database to parse the IP address to the corresponding address.
