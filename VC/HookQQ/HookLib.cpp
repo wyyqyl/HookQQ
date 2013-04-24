@@ -2,8 +2,8 @@
 #include "HookLib.h"
 #include "Ldasm.h"
 
-BYTE JumpCode[] = {0x68,0x00,0x00,0x00,0x00,0xC3};
-BYTE JumpbackCode[] = {0x68,0x00,0x00,0x00,0x00,0xC3};
+BYTE JumpCode[] = {0xE9,0x00,0x00,0x00,0x00};
+BYTE JumpbackCode[] = {0xE9,0x00,0x00,0x00,0x00};
 
 #define JumpCodeSize sizeof(JumpCode)
 #define JumpbackCodeSize sizeof(JumpbackCode)
@@ -15,33 +15,31 @@ PVOID HookFunction(LPTSTR ModuleName, LPCSTR FunctionName, PVOID MyFunction)
 	LPBYTE opCode = NULL;
 	DWORD backupLen = 0;
 	DWORD oldProtect = 0;
-	TCHAR tzTemp[MAX_PATH] = {0};
 
 	// Get original function address
 	oldFunction = GetProcAddress(GetModuleHandle(ModuleName), FunctionName);
 	if (!oldFunction)
 	{
-		wsprintf(tzTemp, TEXT("Failed to find the function: %hs\n"), FunctionName);
-		OutputDebugText(tzTemp);
+		DbgPrint((TEXT("Failed to find the function: %hs\n"), FunctionName));
 		return NULL;
 	}
 
 	// Get the exact length
 	while (backupLen < JumpCodeSize)
 		backupLen += size_of_code((LPBYTE)((DWORD)oldFunction + backupLen), &opCode);
-
-	// Fill the data
-	*(DWORD *)(JumpCode + 1) = (DWORD)MyFunction;
-	*(DWORD *)(JumpbackCode + 1) = (DWORD)oldFunction + backupLen;
-
+	
 	// Allocate space for proxy function
 	proxyFunction = VirtualAlloc(NULL, backupLen + JumpCodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 	if (!proxyFunction)
 	{
-		wsprintf(tzTemp, TEXT("Failed to allocate space for the function: %hs\n"), FunctionName);
-		OutputDebugText(tzTemp);
+		DbgPrint((TEXT("Failed to allocate space for the function: %hs\n"), FunctionName));
 		return NULL;
 	}
+	
+	// Fill the data
+	*(DWORD *)(JumpCode + 1) = (DWORD)((LPBYTE)MyFunction - (LPBYTE)oldFunction - backupLen);
+	*(DWORD *)(JumpbackCode + 1) = (DWORD)((LPBYTE)oldFunction - (LPBYTE)proxyFunction - JumpCodeSize);
+
 	 // Fill proxy function and flush instructions
 	RtlCopyMemory(proxyFunction, oldFunction, backupLen);
 	RtlCopyMemory((PVOID)((DWORD)proxyFunction + backupLen), JumpbackCode, JumpbackCodeSize);
@@ -65,8 +63,7 @@ BOOL UnhookFunction(LPTSTR ModuleName, LPCSTR FunctionName, PVOID proxyFunction)
 	oldFunction = GetProcAddress(GetModuleHandle(ModuleName), FunctionName);
 	if (!oldFunction)
 	{
-		wsprintf(tzTemp, TEXT("Failed to find the function: %hs\n"), FunctionName);
-		OutputDebugText(tzTemp);
+		DbgPrint((TEXT("Failed to find the function: %hs\n"), FunctionName));
 		return FALSE;
 	}
 
@@ -78,8 +75,7 @@ BOOL UnhookFunction(LPTSTR ModuleName, LPCSTR FunctionName, PVOID proxyFunction)
 
 	if (!VirtualFree(proxyFunction, 0, MEM_RELEASE))
 	{
-		wsprintf(tzTemp, TEXT("Failed to free memory for the function: %hs\n"), FunctionName);
-		OutputDebugText(tzTemp);
+		DbgPrint((TEXT("Failed to free memory for the function: %hs\n"), FunctionName));
 	}
 
 	return TRUE;
@@ -95,8 +91,7 @@ BOOL IsFunctionHooked(LPTSTR ModuleName, LPCSTR FunctionName)
 	oldFunction = GetProcAddress(GetModuleHandle(ModuleName), FunctionName);
 	if (!oldFunction)
 	{
-		wsprintf(tzTemp, TEXT("Failed to find the function: %hs\n"), FunctionName);
-		OutputDebugText(tzTemp);
+		DbgPrint((TEXT("Failed to find the function: %hs\n"), FunctionName));
 		return FALSE;
 	}
 
@@ -104,8 +99,7 @@ BOOL IsFunctionHooked(LPTSTR ModuleName, LPCSTR FunctionName)
 	{
 		if (((LPBYTE)oldFunction)[index] != JumpCode[index])
 		{
-			wsprintf(tzTemp, TEXT("Function: %hs is not hooked\n"), FunctionName);
-			OutputDebugText(tzTemp);
+			DbgPrint((TEXT("Function: %hs is not hooked\n"), FunctionName));
 			return FALSE;
 		}
 	}

@@ -11,10 +11,11 @@
 // Windows Header Files:
 #include <windows.h>
 
+void OutputString(const TCHAR *fmt, ...);
 #ifdef _DEBUG
-#define OutputDebugText OutputDebugString
+#define DbgPrint(_x_) OutputString _x_
 #else
-#define OutputDebugText
+#define DbgPrint(_x_)
 #endif
 
 // TODO: reference additional headers your program requires here
